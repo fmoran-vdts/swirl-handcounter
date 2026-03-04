@@ -1,0 +1,1029 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Swirl Hand-Count App</title>
+
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#121b2e;
+      --text:#e9eefc;
+      --muted:#a9b5d2;
+      --accent:#6ea8fe;
+      --accent2:#7ee787;
+      --danger:#ff6b6b;
+      --warn:#ffd166;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1200px 800px at 20% 10%, #152244 0%, var(--bg) 60%);
+      color: var(--text);
+      min-height:100vh;
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
+      padding:24px;
+    }
+    .app{
+      width: min(1100px, 100%);
+      display:grid;
+      gap:16px;
+      grid-template-columns: 1.15fr 0.85fr;
+      align-items: start; /* prevents row stretching/jumps */
+    }
+    @media (max-width:900px){ .app{ grid-template-columns: 1fr; } }
+
+    .card{
+      background: var(--card);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius:18px;
+      padding:16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    .title{
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+      gap:12px;
+      margin-bottom:10px;
+    }
+    h1{ font-size:18px; margin:0; letter-spacing:.2px; }
+    .subtitle{ color:var(--muted); font-size:13px; }
+
+    /* Shows JS errors on screen if something goes wrong */
+    .banner-error{
+      display:none;
+      background: var(--warn);
+      color: #1d1200;
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(0,0,0,.2);
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
+
+    .settings{
+      margin:12px 0;
+      padding:12px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      display:grid;
+      gap:10px;
+    }
+    .settings-grid{
+      display:grid;
+      gap:12px;
+      grid-template-columns: 1fr 1.2fr;
+      align-items:start;
+    }
+    @media (max-width:640px){ .settings-grid{ grid-template-columns: 1fr; } }
+
+    label{ font-size:13px; color:var(--muted); }
+    .row{ display:grid; gap:6px; }
+
+    input[type="number"], select{
+      width:100%;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.18);
+      background: rgba(0,0,0,.25);
+      color: var(--text);
+      outline:none;
+      font-size:14px;
+    }
+    input:disabled, select:disabled{ opacity:.65; cursor:not-allowed; }
+
+    .warning{
+      display:none;
+      background: var(--warn);
+      color:#1d1200;
+      border-radius:12px;
+      padding:8px 10px;
+      border:1px solid rgba(0,0,0,.2);
+      font-size:13px;
+    }
+
+    .click-btn{
+      width:100%;
+      padding:18px 16px;
+      font-size:18px;
+      border-radius:14px;
+      border:0;
+      cursor:pointer;
+      font-weight:900;
+      background: linear-gradient(135deg, var(--accent), #9bdbff);
+      color:#061126;
+      user-select:none;
+    }
+    .click-btn:disabled{ opacity:.45; cursor:not-allowed; }
+
+    /* Stats: interval-level + test outputs + intervals logged */
+    .stats{
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap:12px;
+      margin:12px 0 14px;
+    }
+    
+	.stat{
+  		border-radius:10px;      /* smaller corners */
+ 		padding:8px;             /* less padding */
+  	border:1px solid rgba(255,255,255,.10);
+  	background: rgba(255,255,255,.04);
+	}
+
+	.stat .label{
+  	color:var(--muted);
+  	font-size:11px;          /* smaller label */
+	}
+
+	.stat .value{
+  		font-size:18px;          /* smaller value */
+  		font-weight:800;
+  		margin-top:2px;
+  		letter-spacing:0;
+	}
+
+
+    .controls{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      justify-content:space-between;
+      align-items:center;
+    }
+    .left-actions, .right-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+
+    button{
+      border-radius:14px;
+      padding:12px 14px;
+      border:0;
+      cursor:pointer;
+      font-weight:900;
+      background: var(--accent);
+      color:#061126;
+      user-select:none;
+    }
+
+/* Flash animation for the Record Event button */
+@keyframes clickFlash {
+  0%   { transform: scale(1);   filter: brightness(1);   box-shadow: 0 0 0 rgba(0,0,0,0); }
+  40%  { transform: scale(1.02); filter: brightness(1.35); box-shadow: 0 0 18px rgba(110,168,254,0.55); }
+  100% { transform: scale(1);   filter: brightness(1);   box-shadow: 0 0 0 rgba(0,0,0,0); }
+}
+
+/* Class we’ll temporarily add/remove on click */
+.flash-on-click {
+  animation: clickFlash 140ms ease-out;
+}
+
+    button.secondary{
+      background: rgba(255,255,255,.08);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,.14);
+      font-weight:800;
+    }
+    button.danger{
+      background: var(--danger);
+      color:#1b0a0a;
+    }
+    button:disabled{ opacity:.45; cursor:not-allowed; }
+
+    .timer{ margin-top:12px; display:grid; gap:10px; }
+    .timer-row{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      color:var(--muted);
+      font-size:13px;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .pill{
+      display:inline-block;
+      padding:2px 10px;
+      border-radius:999px;
+      font-size:12px;
+      border:1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+    }
+    .bar{
+      height:12px;
+      border-radius:999px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.10);
+      overflow:hidden;
+    }
+    #barFill{
+      height:100%;
+      width:100%;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      transform-origin:left;
+      transform: scaleX(1);
+      transition: transform .1s linear;
+    }
+
+    .toggles{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      color:var(--muted);
+      font-size:13px;
+    }
+    .toggle{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+    }
+    input[type="checkbox"]{ transform: scale(1.1); }
+
+    /* FIX A: reserve space for log immediately */
+    .log{
+      height: min(620px, calc(100vh - 220px));
+      overflow:auto;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+    }
+
+    table{ width:100%; border-collapse:collapse; font-size:13px; }
+    th, td{
+      padding:10px;
+      text-align:left;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      white-space:nowrap;
+      vertical-align:top;
+    }
+    th{
+      position:sticky;
+      top:0;
+      background: var(--card);
+      z-index: 2;
+    }
+    .muted{ color:var(--muted); }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <!-- LEFT -->
+    <div class="card">
+      <div id="fatalError" class="banner-error"></div>
+
+      <div class="title">
+        <h1>Swirl Meter Counter</h1>
+        <div class="subtitle">Configure → Start → Click. Auto-stops after target intervals + 1.</div>
+      </div>
+
+      <div class="settings">
+        <div class="settings-grid">
+          <div class="row">
+            <label for="intervalSeconds">Interval length (seconds)</label>
+            <input id="intervalSeconds" type="number" min="1" max="3600" step="1" value="10" />
+            <div class="subtitle">Locked after Start.</div>
+          </div>
+
+          <div class="row">
+            <label for="eventTypeSelect">Event type (before Start)</label>
+            <select id="eventTypeSelect">
+              <option value="" selected disabled>Select event type…</option>
+              <option value="quarter">Quarter-turns</option>
+              <option value="half">Half-turns</option>
+              <option value="full">Full turns</option>
+            </select>
+            <div class="subtitle">Locked after Start.</div>
+          </div>
+
+          <!-- NEW: desired intervals -->
+          <div class="row">
+            <label for="desiredIntervals">Desired number of intervals</label>
+            <input id="desiredIntervals" type="number" min="1" max="100000" step="1" value="60" />
+            <div class="subtitle">Auto-stop after (desired + 1) intervals are logged. Locked after Start.</div>
+          </div>
+        </div>
+
+        <div class="warning" id="settingsWarning">Please complete the settings before starting.</div>
+      </div>
+
+      <button id="clickBtn" class="click-btn" disabled>Select an event type, then Start</button>
+
+      <div class="timer">
+        <div class="timer-row">
+          <div>
+            Timer: <span id="timerState" class="pill">Stopped</span>
+            <span class="subtitle" id="runSummary"></span>
+          </div>
+          <div>Next log in <strong><span id="secondsLeft">10.0</span>s</strong></div>
+        </div>
+
+        <div class="bar"><div id="barFill"></div></div>
+
+        <div class="toggles">
+          <label class="toggle"><input type="checkbox" id="beepToggle" checked /> Beep on log</label>
+          <label class="toggle"><input type="checkbox" id="flashToggle" checked /> Flash on log</label>
+        </div>
+
+        <div class="subtitle">Audio may require one user click to unlock in the browser.</div>
+      </div>
+
+      <div class="controls">
+        <div class="left-actions">
+          <button id="startBtn" class="secondary" disabled>Start</button>
+          <button id="pauseBtn" class="secondary" disabled>Pause</button>
+          <button id="resetBtn" class="danger">Reset</button>
+        </div>
+        <div class="right-actions">
+          <button id="exportBtn" class="secondary">Export CSV</button>
+        </div>
+      </div>
+
+      <!-- Stats + Test Outputs -->
+      <div class="stats">
+	<!-- ALWAYS VISIBLE STATS -->
+        <div class="stat">
+          <div class="label">This interval (events)</div>
+          <div id="intervalValue" class="value">0</div>
+        </div>
+
+        <div class="stat">
+          <div class="label">Intervals logged</div>
+          <div id="intervalsLoggedValue" class="value">0</div>
+        </div>
+        
+	<div class="stat">
+          <div class="label">This interval (turns/sec)</div>
+          <div id="intervalTurnsPerSecValue" class="value">0.000</div>
+        </div>
+
+        <!-- Test output #1: average of turns/sec column -->
+        <div class="stat">
+          <div class="label">Average turns/sec (all intervals)</div>
+          <div id="avgTurnsPerSecAllValue" class="value">0.000</div>
+        </div>
+
+        <!-- Test output #2: MAX of moving-average column (blank until defined) -->
+        <div class="stat">
+          <div class="label" id="movingAvgStatLabel">Max XX-sec avg (turns/sec)</div>
+          <div id="maxOfMovingAvgValue" class="value"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="card">
+      <div class="title">
+        <h1>Interval Log</h1>
+        <div class="subtitle">Count + turns/sec + 3-interval moving average (blank for first two).</div>
+      </div>
+
+      <div class="log">
+        <!-- FIX A: Always show the table (header always present) -->
+        <table id="logTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Interval end time</th>
+              <th>Count</th>
+              <th>Turns/sec</th>
+              <th id="avgHeader">30-sec average (turns/sec)</th>
+              <th class="muted">Event / Interval</th>
+            </tr>
+          </thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Show JS errors on screen (helpful while iterating).
+    window.onerror = function(message, source, lineno, colno, error) {
+      var box = document.getElementById('fatalError');
+      if (box) {
+        box.style.display = 'block';
+        box.textContent =
+          "JavaScript error:\n" + message +
+          "\n\nSource: " + source +
+          "\nLine: " + lineno + ", Column: " + colno +
+          (error && error.stack ? "\n\n" + error.stack : "");
+      }
+      return false;
+    };
+
+    (function(){
+      var TICK_MS = 100;
+
+      var EVENT_TYPES = {
+        quarter: { label: "Quarter-turns", weight: 0.25 },
+        half:    { label: "Half-turns",    weight: 0.50 },
+        full:    { label: "Full turns",    weight: 1.00 }
+      };
+
+      // --- State ---
+      var running = false;
+      var completed = false;
+
+      // If true, the next interval boundary is a warm-up boundary and will NOT be logged.
+      var warmupInterval = true;
+
+      // Current-interval counters
+      var intervalCount = 0;
+      var intervalWeightedTurns = 0;
+
+      // Total counts and weighted counts (not displayed)
+      var total = 0;
+      var totalWeightedTurns = 0;
+
+      var intervalIndex = 0;
+
+      // Run settings (locked after Start)
+      var intervalMs = 10000;
+      var intervalSec = 10;
+      var desiredIntervals = 60;      // user setting N
+      var stopAfterIntervals = 61;    // N + 1 (computed at Start)
+
+      var eventKey = null, eventLabel = null, eventWeight = null;
+
+      // Timer markers
+      var intervalStart = null, nextBoundary = null;
+      var tickHandle = null, lastPausedAt = null;
+
+      // Log rows
+      var logRows = [];
+
+      // --- Elements ---
+      var intervalSecondsInput = document.getElementById('intervalSeconds');
+      var eventTypeSelect = document.getElementById('eventTypeSelect');
+      var desiredIntervalsInput = document.getElementById('desiredIntervals');
+      var settingsWarning = document.getElementById('settingsWarning');
+
+      var clickBtn = document.getElementById('clickBtn');
+      var startBtn = document.getElementById('startBtn');
+      var pauseBtn = document.getElementById('pauseBtn');
+      var resetBtn = document.getElementById('resetBtn');
+      var exportBtn = document.getElementById('exportBtn');
+
+      var intervalValue = document.getElementById('intervalValue');
+      var intervalTurnsPerSecValue = document.getElementById('intervalTurnsPerSecValue');
+      var intervalsLoggedValue = document.getElementById('intervalsLoggedValue');
+
+      var avgTurnsPerSecAllValue = document.getElementById('avgTurnsPerSecAllValue');
+      var maxOfMovingAvgValue = document.getElementById('maxOfMovingAvgValue');
+      var movingAvgStatLabel = document.getElementById('movingAvgStatLabel');
+
+      var timerState = document.getElementById('timerState');
+      var runSummary = document.getElementById('runSummary');
+      var secondsLeftEl = document.getElementById('secondsLeft');
+      var barFill = document.getElementById('barFill');
+
+      var beepToggle = document.getElementById('beepToggle');
+      var flashToggle = document.getElementById('flashToggle');
+
+      var logTable = document.getElementById('logTable');
+      var logBody = document.getElementById('logBody');
+      var avgHeader = document.getElementById('avgHeader');
+
+      // --- Audio ---
+      var audioCtx = null;
+      function ensureAudio(){
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+      }
+      function beep(){
+        if (!beepToggle.checked) return;
+        try{
+          ensureAudio();
+          var osc = audioCtx.createOscillator();
+          var gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = 880;
+          gain.gain.value = 0.08;
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.12);
+        }catch(e){}
+      }
+
+      // --- Helpers ---
+      function nowMs(){
+        return (window.performance && performance.now) ? performance.now() : Date.now();
+      }
+      function fmtLocalTime(d){
+        return d.toLocaleString(undefined, {
+          year:'numeric', month:'2-digit', day:'2-digit',
+          hour:'2-digit', minute:'2-digit', second:'2-digit'
+        });
+      }
+      function fmtRate(x){
+        return (Math.round(x * 1000) / 1000).toFixed(3);
+      }
+      function setTimerPill(text){
+        timerState.textContent = text;
+      }
+      function flash(){
+        if (!flashToggle.checked) return;
+        var prev = document.body.style.filter;
+        document.body.style.filter = "brightness(1.25)";
+        setTimeout(function(){ document.body.style.filter = prev; }, 120);
+      }
+
+	
+function flashButtonOnce(btn){
+  // Remove class (in case it’s already on there) so animation can restart
+  btn.classList.remove("flash-on-click");
+
+  // Force a reflow so the browser “restarts” the animation reliably
+  // (This is a common trick when re-adding the same animation class.)
+  void btn.offsetWidth;
+
+  // Add the class back to trigger the animation
+  btn.classList.add("flash-on-click");
+
+  // Optional: remove it after the animation finishes (keeps DOM clean)
+  setTimeout(function(){
+    btn.classList.remove("flash-on-click");
+  }, 180);
+}
+
+      function updateAverageHeaderFromSeconds(sec){
+        var avgWindow = Math.round(sec) * 3;
+        avgHeader.textContent = avgWindow + "-sec average (turns/sec)";
+        movingAvgStatLabel.textContent = "Max " + avgWindow + "-sec avg (turns/sec)";
+      }
+
+      function currentTurnsPerSec(){
+        if (!intervalSec || intervalSec <= 0) return 0;
+        return intervalWeightedTurns / intervalSec;
+      }
+
+      // Test outputs:
+      // #1 average turns/sec across ALL logged intervals
+      // #2 max of moving-average column across defined values (blank until defined)
+      function computeTestOutputs(){
+        var n = logRows.length;
+
+        var sumTurnsPerSec = 0;
+        for (var i=0; i<n; i++){
+          sumTurnsPerSec += logRows[i].turnsPerSec;
+        }
+        var avgTurnsPerSecAll = (n > 0) ? (sumTurnsPerSec / n) : 0;
+
+        var maxMoving = null;
+        for (var j=0; j<n; j++){
+          var v = logRows[j].avg3TurnsPerSec;
+          if (v !== null && v !== undefined && isFinite(v)){
+            if (maxMoving === null || v > maxMoving) maxMoving = v;
+          }
+        }
+
+        return { avgTurnsPerSecAll: avgTurnsPerSecAll, maxMovingAvg: maxMoving };
+      }
+
+      function updateStats(){
+        intervalValue.textContent = intervalCount;
+        intervalTurnsPerSecValue.textContent = fmtRate(currentTurnsPerSec());
+        intervalsLoggedValue.textContent = logRows.length;
+
+        var out = computeTestOutputs();
+        avgTurnsPerSecAllValue.textContent = fmtRate(out.avgTurnsPerSecAll);
+        maxOfMovingAvgValue.textContent = (out.maxMovingAvg === null) ? "" : fmtRate(out.maxMovingAvg);
+      }
+
+// Render log table. Always render the table; if no rows, show a placeholder row inside the table body.
+function renderLog(){
+  if (!logTable || !logBody) return;
+
+  logBody.innerHTML = "";
+
+  if (logRows.length === 0){
+    const tr0 = document.createElement("tr");
+    tr0.innerHTML = `
+      <td colspan="6" class="muted" style="white-space:normal; padding:14px;">
+        No intervals logged yet — configure settings and press Start.
+      </td>`;
+    logBody.appendChild(tr0);
+    return;
+  }
+
+  for (var i = logRows.length - 1; i >= 0; i--){
+    var row = logRows[i];
+
+    var avgDisplay = (row.avg3TurnsPerSec === null || row.avg3TurnsPerSec === undefined)
+      ? ""
+      : fmtRate(row.avg3TurnsPerSec);
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${row.idx}</td>
+      <td>${row.endTimeLocal}</td>
+      <td><strong>${row.count}</strong></td>
+      <td><strong>${fmtRate(row.turnsPerSec)}</strong></td>
+      <td><strong>${avgDisplay}</strong></td>
+      <td class="muted">${row.eventLabel} / ${row.intervalSeconds}s</td>`;
+    logBody.appendChild(tr);
+  }
+}
+
+      function exportCSV(){
+        var header = [
+          "interval_index",
+          "interval_end_local",
+          "interval_end_iso",
+          "count",
+          "turns_per_sec",
+          "avg_turns_per_sec_over_3_intervals",
+          "event_type_label",
+          "event_type_key",
+          "interval_seconds",
+          "weight_per_event",
+          "desired_intervals",
+          "stop_after_intervals"
+        ];
+        var lines = [header.join(",")];
+
+        for (var i=0; i<logRows.length; i++){
+          var r = logRows[i];
+          var safeLocal = '"' + String(r.endTimeLocal).replace(/"/g,'""') + '"';
+          var safeLabel = '"' + String(r.eventLabel).replace(/"/g,'""') + '"';
+          var avgVal = (r.avg3TurnsPerSec === null || r.avg3TurnsPerSec === undefined) ? "" : r.avg3TurnsPerSec;
+
+          lines.push([
+            r.idx,
+            safeLocal,
+            r.endTimeISO,
+            r.count,
+            r.turnsPerSec,
+            avgVal,
+            safeLabel,
+            r.eventKey,
+            r.intervalSeconds,
+            r.eventWeight,
+            desiredIntervals,
+            stopAfterIntervals
+          ].join(","));
+        }
+
+        var blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8"});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = "interval_log.csv";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      // --- Settings / UI ---
+      function getIntervalSeconds(){
+        var s = Number(intervalSecondsInput.value);
+        if (!isFinite(s) || s < 1) return null;
+        if (s > 3600) return 3600;
+        return Math.floor(s);
+      }
+      function getSelectedEventKey(){
+        return eventTypeSelect.value || null;
+      }
+      function getDesiredIntervals(){
+        var n = Number(desiredIntervalsInput.value);
+        if (!isFinite(n) || n < 1) return null;
+        return Math.floor(n);
+      }
+
+      function setSettingsLocked(locked){
+        intervalSecondsInput.disabled = locked;
+        eventTypeSelect.disabled = locked;
+        desiredIntervalsInput.disabled = locked;
+        settingsWarning.style.display = "none";
+      }
+
+      function refreshSettingsUI(){
+        var key = getSelectedEventKey();
+        var secs = getIntervalSeconds();
+        var nIntervals = getDesiredIntervals();
+
+        var hasType = !!key;
+        var hasInterval = (secs !== null);
+        var hasDesired = (nIntervals !== null);
+
+        // Start enabled only when configured + not running + not completed
+        startBtn.disabled = !(hasType && hasInterval && hasDesired) || running || completed;
+
+        pauseBtn.disabled = !running;
+        clickBtn.disabled = !running;
+
+        if (!hasType) clickBtn.textContent = "Select an event type, then Start";
+        else clickBtn.textContent = "Record " + EVENT_TYPES[key].label;
+
+        if (hasType && hasInterval && hasDesired){
+          runSummary.textContent =
+            " • " + EVENT_TYPES[key].label +
+            " • " + secs + "s interval" +
+            " • stop at " + (nIntervals + 1) + " intervals";
+        } else {
+          runSummary.textContent = "";
+        }
+
+        if (!running && !completed && hasInterval){
+          secondsLeftEl.textContent = secs.toFixed(1);
+          barFill.style.transform = "scaleX(1)";
+          updateAverageHeaderFromSeconds(secs);
+        }
+      }
+
+      // --- Run control ---
+      function start(){
+        if (running || completed) return;
+
+	warmupInterval = true;
+
+        var key = getSelectedEventKey();
+        if (!key || !EVENT_TYPES[key]){
+          settingsWarning.textContent = "Please select an event type before starting.";
+          settingsWarning.style.display = "block";
+          return;
+        }
+
+        var secs = getIntervalSeconds();
+        if (secs === null){
+          settingsWarning.textContent = "Please enter a valid interval length (>= 1 second).";
+          settingsWarning.style.display = "block";
+          return;
+        }
+
+        var nIntervals = getDesiredIntervals();
+        if (nIntervals === null){
+          settingsWarning.textContent = "Please enter a valid desired number of intervals (>= 1).";
+          settingsWarning.style.display = "block";
+          return;
+        }
+
+        // Lock in run settings
+        eventKey = key;
+        eventLabel = EVENT_TYPES[key].label;
+        eventWeight = EVENT_TYPES[key].weight;
+
+        intervalSec = secs;
+        intervalMs = secs * 1000;
+
+        desiredIntervals = nIntervals;
+        stopAfterIntervals = desiredIntervals + 1; // per your requirement
+
+        updateAverageHeaderFromSeconds(secs);
+        setSettingsLocked(true);
+
+        completed = false;
+        running = true;
+
+        var t = nowMs();
+        intervalStart = t;
+        nextBoundary = intervalStart + intervalMs;
+
+        setTimerPill("Running");
+        tickHandle = setInterval(tick, TICK_MS);
+        tick();
+        refreshSettingsUI();
+      }
+
+      function pause(){
+        if (!running) return;
+
+        running = false;
+        lastPausedAt = nowMs();
+        setTimerPill("Paused");
+
+        if (tickHandle) clearInterval(tickHandle);
+        tickHandle = null;
+
+        refreshSettingsUI();
+        tick();
+      }
+
+      function completeRun(){
+        // Stop the timer and freeze interaction
+        running = false;
+        completed = true;
+
+        if (tickHandle) clearInterval(tickHandle);
+        tickHandle = null;
+
+        setTimerPill("Complete");
+        secondsLeftEl.textContent = "0.0";
+        barFill.style.transform = "scaleX(0)";
+
+        // Disable buttons appropriately
+        clickBtn.disabled = true;
+        pauseBtn.disabled = true;
+        startBtn.disabled = true;
+
+        // Keep settings locked until Reset so run stays "frozen"
+        updateStats();
+      }
+
+      function reset(){
+        if (tickHandle) clearInterval(tickHandle);
+        tickHandle = null;
+
+        running = false;
+        completed = false;
+
+        intervalCount = 0;
+        intervalWeightedTurns = 0;
+        total = 0;
+        totalWeightedTurns = 0;
+
+        intervalIndex = 0;
+        intervalStart = null;
+        nextBoundary = null;
+        lastPausedAt = null;
+
+        eventKey = null;
+        eventLabel = null;
+        eventWeight = null;
+
+        logRows.length = 0;
+
+        setSettingsLocked(false);
+        setTimerPill("Stopped");
+
+        updateStats();
+        renderLog();
+        refreshSettingsUI();
+      }
+
+      function logInterval(){
+	// --- WARMUP: skip logging the first interval boundary ---
+  	if (warmupInterval) {
+    		warmupInterval = false;
+
+    	// Reset counters so the first *logged* interval starts clean
+    	intervalCount = 0;
+    	intervalWeightedTurns = 0;
+
+    	// Update the UI (interval stats drop to zero)
+    	updateStats();
+
+    	// Optional: beep/flash here to indicate "logging starts now"
+    	beep();
+    	flash();
+
+    	return; // IMPORTANT: do not log anything
+  	}
+
+        intervalIndex += 1;
+
+        var endDate = new Date();
+        var turnsPerSec = (intervalSec > 0) ? (intervalWeightedTurns / intervalSec) : 0;
+
+        // 3-interval moving average in turns/sec:
+        // (turns_n + turns_{n-1} + turns_{n-2}) / (3*intervalSec)
+        // Blank for first two -> store null until we have 3.
+        var avg3 = null;
+        if (logRows.length >= 2) {
+          var t1 = logRows[logRows.length - 1].turnsWeighted;
+          var t2 = logRows[logRows.length - 2].turnsWeighted;
+          avg3 = (intervalWeightedTurns + t1 + t2) / (3 * intervalSec);
+        }
+
+        logRows.push({
+          idx: intervalIndex,
+          endTimeISO: endDate.toISOString(),
+          endTimeLocal: fmtLocalTime(endDate),
+
+          count: intervalCount,
+          turnsWeighted: intervalWeightedTurns,
+          turnsPerSec: turnsPerSec,
+          avg3TurnsPerSec: avg3,
+
+          eventLabel: eventLabel,
+          eventKey: eventKey,
+          eventWeight: eventWeight,
+          intervalSeconds: intervalSec
+        });
+
+        // Reset interval counters
+        intervalCount = 0;
+        intervalWeightedTurns = 0;
+
+        updateStats();
+        renderLog();
+        beep();
+        flash();
+
+        // NEW: auto-stop condition (desired intervals + 1)
+        if (intervalIndex >= stopAfterIntervals) {
+          completeRun();
+        }
+      }
+
+      function tick(){
+        if (intervalStart === null || nextBoundary === null){
+          updateStats();
+          return;
+        }
+
+        var t = nowMs();
+        var leftMs = Math.max(0, nextBoundary - t);
+
+        secondsLeftEl.textContent = (leftMs/1000).toFixed(1);
+
+        var progress = 1 - (leftMs / intervalMs);
+        var scale = Math.max(0, Math.min(1, 1 - progress));
+        barFill.style.transform = "scaleX(" + scale + ")";
+
+        if (!running) return;
+
+        while (nowMs() >= nextBoundary){
+          logInterval();
+          // If run completed inside logInterval(), stop chaining boundaries
+          if (!running) return;
+
+          intervalStart = nextBoundary;
+          nextBoundary = intervalStart + intervalMs;
+        }
+      }
+
+      // --- User input ---
+      clickBtn.addEventListener('click', function(){
+        if (!running || eventWeight === null || warmupInterval == true) return;
+	
+	flashButtonOnce(clickBtn);
+        ensureAudio();
+
+        intervalCount += 1;
+        intervalWeightedTurns += eventWeight;
+
+        total += 1;
+        totalWeightedTurns += eventWeight;
+
+        updateStats();
+      });
+
+
+	// ------------------------------------------------------------
+	// HOTKEY: Space bar = "Record Event" button
+	// ------------------------------------------------------------
+	document.addEventListener('keydown', function (e) {
+  		// Only respond to the space bar
+  		// e.code is "Space" on modern browsers; e.key can be " " (space character)
+  		var isSpace = (e.code === "Space") || (e.key === " ");
+  		if (!isSpace) return;
+
+  		// Prevent the default action (spacebar scrolls the page)
+  		e.preventDefault();
+
+  		// Avoid rapid auto-repeat if the user holds the spacebar down
+  		if (e.repeat) return;
+
+  		// Don't trigger if the user is focused in an input/select/textarea
+  		var t = e.target;
+  		var tag = t && t.tagName ? t.tagName.toLowerCase() : "";
+  		if (tag === "input" || tag === "select" || tag === "textarea") return;
+
+  		// Only click if the button is enabled (i.e., running)
+  		if (clickBtn && !clickBtn.disabled) {
+    		clickBtn.click(); // fires the same code as a mouse click
+  		}
+	});
+
+
+      startBtn.addEventListener('click', start);
+      pauseBtn.addEventListener('click', pause);
+      resetBtn.addEventListener('click', reset);
+      exportBtn.addEventListener('click', exportCSV);
+
+      intervalSecondsInput.addEventListener('input', function(){
+        if (!intervalSecondsInput.disabled) refreshSettingsUI();
+      });
+
+      desiredIntervalsInput.addEventListener('input', function(){
+        if (!desiredIntervalsInput.disabled) refreshSettingsUI();
+      });
+
+      eventTypeSelect.addEventListener('change', function(){
+        settingsWarning.style.display = "none";
+        if (!eventTypeSelect.disabled) refreshSettingsUI();
+      });
+
+      // Initialize
+      reset();
+      // Render placeholder log row immediately (so layout is stable)
+      renderLog();
+
+    })();
+  </script>
+</body>
+</html>
