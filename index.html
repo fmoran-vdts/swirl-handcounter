@@ -95,7 +95,19 @@
       background: rgba(0,0,0,.25);
       color: var(--text);
       outline:none;
-      font-size:14px;
+      font-size:12px;
+    }
+    input:disabled, select:disabled{ opacity:.65; cursor:not-allowed; }
+	
+	input[type="text"], select{
+      width:100%;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.18);
+      background: rgba(0,0,0,.25);
+      color: var(--text);
+      outline:none;
+      font-size:12px;
     }
     input:disabled, select:disabled{ opacity:.65; cursor:not-allowed; }
 
@@ -249,7 +261,7 @@
     }
     input[type="checkbox"]{ transform: scale(1.1); }
 
-    /* FIX A: reserve space for log immediately */
+    /*reserve space for log immediately */
     .log{
       height: min(620px, calc(100vh - 220px));
       overflow:auto;
@@ -288,8 +300,18 @@
       </div>
 
       <div class="settings">
-        <div class="settings-grid">
-          <div class="row">
+        <div class="settings-grid">  
+			<div class="row">
+				<label for="projectName">Project name</label>
+				<input id="projectName" type="text" />
+			</div>
+
+			<div class="row">
+				<label for="testName">Test name</label>
+				<input id="testName" type="text" />
+			</div>
+
+		  <div class="row">
             <label for="intervalSeconds">Interval length (seconds)</label>
             <input id="intervalSeconds" type="number" min="1" max="3600" step="1" value="10" />
             <div class="subtitle">Locked after Start.</div>
@@ -389,7 +411,6 @@
       </div>
 
       <div class="log">
-        <!-- FIX A: Always show the table (header always present) -->
         <table id="logTable">
           <thead>
             <tr>
@@ -464,7 +485,9 @@
       var logRows = [];
 
       // --- Elements ---
-      var intervalSecondsInput = document.getElementById('intervalSeconds');
+      var projectNameInput = document.getElementById('projectName');
+	  var testNameInput = document.getElementById('testName');
+	  var intervalSecondsInput = document.getElementById('intervalSeconds');
       var eventTypeSelect = document.getElementById('eventTypeSelect');
       var desiredIntervalsInput = document.getElementById('desiredIntervals');
       var settingsWarning = document.getElementById('settingsWarning');
@@ -516,6 +539,25 @@
           osc.stop(audioCtx.currentTime + 0.12);
         }catch(e){}
       }
+	  function clickSound(){
+		try{
+		ensureAudio();
+		var osc = audioCtx.createOscillator();
+		var gain = audioCtx.createGain();
+
+		osc.type = 'square';
+		osc.frequency.value = 1400;
+
+		var t = audioCtx.currentTime;
+		gain.gain.setValueAtTime(0.06, t);
+		gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+
+		osc.connect(gain);
+		gain.connect(audioCtx.destination);
+		osc.start(t);
+		osc.stop(t + 0.03);
+	}catch(e){}
+ }
 
       // --- Helpers ---
       function nowMs(){
@@ -541,22 +583,22 @@
       }
 
 	
-function flashButtonOnce(btn){
-  // Remove class (in case it’s already on there) so animation can restart
-  btn.classList.remove("flash-on-click");
+	  function flashButtonOnce(btn){
+		// Remove class (in case it’s already on there) so animation can restart
+		btn.classList.remove("flash-on-click");
 
-  // Force a reflow so the browser “restarts” the animation reliably
-  // (This is a common trick when re-adding the same animation class.)
-  void btn.offsetWidth;
+		// Force a reflow so the browser “restarts” the animation reliably
+		// (This is a common trick when re-adding the same animation class.)
+		void btn.offsetWidth;
 
-  // Add the class back to trigger the animation
-  btn.classList.add("flash-on-click");
+		// Add the class back to trigger the animation
+		btn.classList.add("flash-on-click");
 
-  // Optional: remove it after the animation finishes (keeps DOM clean)
-  setTimeout(function(){
-    btn.classList.remove("flash-on-click");
-  }, 180);
-}
+		// Optional: remove it after the animation finishes (keeps DOM clean)
+		setTimeout(function(){
+			btn.classList.remove("flash-on-click");
+		}, 180);
+	  }
 
       function updateAverageHeaderFromSeconds(sec){
         var avgWindow = Math.round(sec) * 3;
@@ -639,6 +681,8 @@ function renderLog(){
 
       function exportCSV(){
         var header = [
+		  "project_name",
+		  "test_name",
           "interval_index",
           "interval_end_local",
           "interval_end_iso",
@@ -653,6 +697,10 @@ function renderLog(){
           "stop_after_intervals"
         ];
         var lines = [header.join(",")];
+		var proj = projectNameInput ? projectNameInput.value : "";
+		var test = testNameInput ? testNameInput.value : "";
+		var safeProj = '"' + String(proj).replace(/"/g,'""') + '"';
+		var safeTest = '"' + String(test).replace(/"/g,'""') + '"';
 
         for (var i=0; i<logRows.length; i++){
           var r = logRows[i];
@@ -661,7 +709,9 @@ function renderLog(){
           var avgVal = (r.avg3TurnsPerSec === null || r.avg3TurnsPerSec === undefined) ? "" : r.avg3TurnsPerSec;
 
           lines.push([
-            r.idx,
+            safeProj,
+			safeTest,
+			r.idx,
             safeLocal,
             r.endTimeISO,
             r.count,
@@ -679,8 +729,9 @@ function renderLog(){
         var blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8"});
         var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
+		var titleCSV = proj + " " + test + " " + "swirl handcount"
         a.href = url;
-        a.download = "interval_log.csv";
+        a.download = titleCSV;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -718,15 +769,22 @@ function renderLog(){
         var hasType = !!key;
         var hasInterval = (secs !== null);
         var hasDesired = (nIntervals !== null);
+		var hasProjName = projectNameInput && projectNameInput.value.trim().length > 0;
+		var hasTestName = testNameInput && testNameInput.value.trim().length > 0;
 
-        // Start enabled only when configured + not running + not completed
-        startBtn.disabled = !(hasType && hasInterval && hasDesired) || running || completed;
+        // Start enabled only when fully configured + not running + not completed
+        startBtn.disabled = !(hasType && hasInterval && hasDesired && hasProjName && hasTestName) || running || completed;
 
         pauseBtn.disabled = !running;
         clickBtn.disabled = !running;
 
-        if (!hasType) clickBtn.textContent = "Select an event type, then Start";
-        else clickBtn.textContent = "Record " + EVENT_TYPES[key].label;
+        if (!hasType) {
+		clickBtn.textContent = "Select an event type, then Start";
+		} else if (running && warmupInterval) {
+		  clickBtn.textContent = "Get ready...";
+        } else {
+		  clickBtn.textContent = "Record " + EVENT_TYPES[key].label;
+		}
 
         if (hasType && hasInterval && hasDesired){
           runSummary.textContent =
@@ -748,7 +806,9 @@ function renderLog(){
       function start(){
         if (running || completed) return;
 
-	warmupInterval = true;
+		warmupInterval = true;
+		
+		clickBtn.textContent = "Get ready...";
 
         var key = getSelectedEventKey();
         if (!key || !EVENT_TYPES[key]){
@@ -858,16 +918,20 @@ function renderLog(){
 
         setSettingsLocked(false);
         setTimerPill("Stopped");
-
+		
+		clickBtn.textContent = "Select an event type, then Start";
         updateStats();
         renderLog();
         refreshSettingsUI();
       }
 
       function logInterval(){
-	// --- WARMUP: skip logging the first interval boundary ---
-  	if (warmupInterval) {
+		// --- WARMUP: skip logging the first interval boundary ---
+		if (warmupInterval) {
     		warmupInterval = false;
+			
+		// Swap record event button text back to Record
+		clickBtn.textContent = "Record " + EVENT_TYPES[eventKey].label;
 
     	// Reset counters so the first *logged* interval starts clean
     	intervalCount = 0;
@@ -881,7 +945,7 @@ function renderLog(){
     	flash();
 
     	return; // IMPORTANT: do not log anything
-  	}
+		}
 
         intervalIndex += 1;
 
@@ -956,11 +1020,12 @@ function renderLog(){
         }
       }
 
-      // --- User input ---
+      // --- Record event event listener---
       clickBtn.addEventListener('click', function(){
         if (!running || eventWeight === null || warmupInterval == true) return;
 	
-	flashButtonOnce(clickBtn);
+		flashButtonOnce(clickBtn);
+		clickSound();
         ensureAudio();
 
         intervalCount += 1;
@@ -999,7 +1064,12 @@ function renderLog(){
   		}
 	});
 
-
+	  projectNameInput.addEventListener('input', function(){
+		refreshSettingsUI();
+		});
+	  testNameInput.addEventListener('input', function(){
+		refreshSettingsUI();
+		});
       startBtn.addEventListener('click', start);
       pauseBtn.addEventListener('click', pause);
       resetBtn.addEventListener('click', reset);
