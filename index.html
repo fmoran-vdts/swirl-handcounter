@@ -520,10 +520,37 @@
 
       // --- Audio ---
       var audioCtx = null;
+	  var audioUnlocked = false;
       function ensureAudio(){
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') audioCtx.resume();
       }
+	  
+	  
+	  /*unlock audio once on a real user gesture */
+	  function unlockAudioOnce(){
+		if (audioUnlocked) return;
+
+		try {
+		ensureAudio();
+
+    // Create a silent oscillator to fully unlock iOS Safari
+    var osc = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    gain.gain.value = 0;
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.01);
+
+    audioUnlocked = true;
+    console.log("Audio unlocked");
+  } catch(e) {}
+}
+
+	  
       function beep(){
         if (!beepToggle.checked) return;
         try{
@@ -804,7 +831,8 @@ function renderLog(){
 
       // --- Run control ---
       function start(){
-        if (running || completed) return;
+        unlockAudioOnce(); //unlocks audio for iOS
+		if (running || completed) return;
 
 		warmupInterval = true;
 		
@@ -1022,7 +1050,9 @@ function renderLog(){
 
       // --- Record event event listener---
       clickBtn.addEventListener('click', function(){
-        if (!running || eventWeight === null || warmupInterval == true) return;
+        unlockAudioOnce(); //unlock audio for iOS
+		
+		if (!running || eventWeight === null || warmupInterval == true) return;
 	
 		flashButtonOnce(clickBtn);
 		clickSound();
