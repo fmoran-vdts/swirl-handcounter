@@ -9,6 +9,7 @@ DIRECTIONS FOR USE
 4. Verify the time of each interval and number of intervals are set correctly. Default values are 10 second intervals and 61 total intervals.
 5. Turn up device volume if desired. Mobile will require silent mode to be off.
 6. Click "Start." The app will count down one interval to allow you to get ready to count.
-7. Once the warmup interval is done, you will hear a beep and you can start recording events. Click the button or hit spacebar to record an event.
+7. Once the warmup interval is done, you will hear a beep and you can start recording events. Click the button or hit spacebar to record an event. Hit "Pause" to temporarily pause intervals.
 8. The app will automatically stop logging when the desired total number of intervals is reached.
 9. The table has a full log of intervals and their stats. Relevant stats like long-term average and 30-second maximum are calculated on the page for convenience. The data is best saved by exporting to CSV.
+10. Hit "Reset" and start again with the next pump or test.
