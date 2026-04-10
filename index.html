@@ -285,6 +285,27 @@
       z-index: 2;
     }
     .muted{ color:var(--muted); }
+	
+	
+  .footer-link {
+	position: fixed;
+	bottom: 8px;
+	left: 50%;
+	transform: translateX(-50%);
+	font-size: 11px;
+	color: var(--muted);
+	opacity: 0.75;
+	z-index: 1000;
+  }
+
+  .footer-link a {
+	color: var(--accent);
+	text-decoration: none;
+  }
+
+  .footer-link a:hover {
+	text-decoration: underline;
+  }
   </style>
 </head>
 
@@ -426,6 +447,14 @@
         </table>
       </div>
     </div>
+	
+	<!-- FOOTER WITH GITHUB LINK --!>
+	<div class="footer-link">
+	  View source & README on
+	  <a href="https://github.com/fmoran-vdts/swirl-handcounter" target="_blank" rel="noopener">
+        GitHub
+	  </a>
+	</div>
   </div>
 
   <script>
