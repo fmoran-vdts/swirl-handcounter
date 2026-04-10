@@ -1055,8 +1055,31 @@ function renderLog(){
 		if (!running || eventWeight === null || warmupInterval == true) return;
 	
 		flashButtonOnce(clickBtn);
-		clickSound();
-        ensureAudio();
+		
+		// specifically iOS-safe click sound must be inline with this function
+		
+		try {
+			ensureAudio();
+
+			const osc = audioCtx.createOscillator();
+			const gain = audioCtx.createGain();
+
+			osc.type = "square";
+			osc.frequency.value = 1400;
+
+			const t = audioCtx.currentTime;
+			gain.gain.setValueAtTime(0.06, t);
+			gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+
+			osc.connect(gain);
+			gain.connect(audioCtx.destination);
+
+			osc.start(t);
+			osc.stop(t + 0.03);
+		} catch (e) {}
+
+		//clickSound();
+        //ensureAudio();
 
         intervalCount += 1;
         intervalWeightedTurns += eventWeight;
