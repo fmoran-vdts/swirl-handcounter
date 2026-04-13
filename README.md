@@ -2,6 +2,9 @@
 
 This is a single-file web app that allows for smoother hand counting of swirl meters and digital output of data. The concept is simply a clicker and a timer, with some added functionality and data processing specifically for swirl. With creativity, it can be repurposed to count any series of events in the lab. The web app can be accessed from the URL https://fmoran-vdts.github.io/swirl-handcounter/ on mobile or browser, or you can download the most recent version to a laptop/desktop and run it locally in-browser without an internet connection. Mobile browsers cannot run HTML or JS locally, as a general rule.
 
+SECURITY
+Do not enter sensitive client information in this web app. Only access from a secure web browser. If in doubt, download the .html file and run this web app locally on a laptop.
+
 DIRECTIONS FOR USE 
 1. Go to the URL https://fmoran-vdts.github.io/swirl-handcounter/ or download and open the HTML file.
 2. Enter the project name and a unique test identifier. As a best practice the test identifer should include at a minimum the test phase, test number, and pump number.
